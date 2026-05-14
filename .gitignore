@@ -1,0 +1,21 @@
+# 의존성
+node_modules/
+
+# 빌드 결과
+dist/
+.ait/
+*.ait
+.granite/
+
+# 환경 변수 (절대 커밋 금지)
+.env
+.env.local
+.env.*.local
+
+# Supabase 로컬 개발
+supabase/.branches/
+supabase/.temp/
+
+# OS / 에디터
+.DS_Store
+*.local
