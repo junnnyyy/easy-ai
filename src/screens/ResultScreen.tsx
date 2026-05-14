@@ -50,10 +50,8 @@ export function ResultScreen({ answer, onBack, onReset }: Props) {
 
       <AdBanner />
 
-      <FixedBottomCTA>
-        <Button size="xlarge" onClick={onReset}>
-          다시 질문하기
-        </Button>
+      <FixedBottomCTA onClick={onReset}>
+        다시 질문하기
       </FixedBottomCTA>
     </div>
   );

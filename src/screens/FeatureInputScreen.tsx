@@ -139,14 +139,11 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
 
       <AdBanner />
 
-      <FixedBottomCTA>
-        <Button
-          size="xlarge"
-          onClick={handleSubmit}
-          disabled={message.length > MAX_LENGTH}
-        >
-          AI에게 물어보기
-        </Button>
+      <FixedBottomCTA
+        onClick={handleSubmit}
+        disabled={message.length > MAX_LENGTH}
+      >
+        광고 보고 AI에게 질문하기
       </FixedBottomCTA>
     </div>
   );

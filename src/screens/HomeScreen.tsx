@@ -1,4 +1,4 @@
-import { Button, FixedBottomCTA, TextArea } from "@toss/tds-mobile";
+import { FixedBottomCTA, TextArea } from "@toss/tds-mobile";
 import { useState } from "react";
 import type { AskParams } from "../hooks/useAskAI";
 import type { FeatureConfig } from "../features/featureConfigs";
@@ -86,14 +86,11 @@ export function HomeScreen({ onAsk, onFeatureSelect, errorMessage }: Props) {
 
       <AdBanner />
 
-      <FixedBottomCTA>
-        <Button
-          size="xlarge"
-          onClick={handleSubmit}
-          disabled={message.length > MAX_LENGTH}
-        >
-          AI에게 물어보기
-        </Button>
+      <FixedBottomCTA
+        onClick={handleSubmit}
+        disabled={message.length > MAX_LENGTH}
+      >
+        광고 보고 AI에게 질문하기
       </FixedBottomCTA>
     </div>
   );
