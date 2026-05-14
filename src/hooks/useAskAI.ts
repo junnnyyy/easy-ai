@@ -81,7 +81,7 @@ export function useAskAI() {
           message: params.message,
           tone: params.tone,
           rewardId: params.rewardId,
-        });
+        }, controller.signal);
 
         if (res.ok) {
           setAnswer(res.data.answer);

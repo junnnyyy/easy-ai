@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-export const FREE_DAILY_LIMIT = 3; // 하루 무료 사용 횟수
+export const FREE_DAILY_LIMIT = 0; // 무료 사용 없음: 첫 질문부터 광고 필요
 export const AD_DAILY_LIMIT = 10; // 광고 포함 최대 하루 사용 횟수
 
 export type UsageRow = {

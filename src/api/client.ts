@@ -12,11 +12,13 @@ export type ApiResponse<T> =
 
 async function callEdgeFunction<T>(
   path: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<ApiResponse<T>> {
   const url = `${SUPABASE_URL}/functions/v1/${path}`;
   const res = await fetch(url, {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
@@ -69,8 +71,8 @@ export type AdRewardResponse = {
 };
 
 export const api = {
-  aiChat: (req: AiChatRequest) =>
-    callEdgeFunction<AiChatResponse>("ai-chat", req),
+  aiChat: (req: AiChatRequest, signal?: AbortSignal) =>
+    callEdgeFunction<AiChatResponse>("ai-chat", req, signal),
 
   issueAdReward: (req: AdRewardRequest) =>
     callEdgeFunction<AdRewardResponse>("ad-reward", req),
