@@ -87,11 +87,9 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>예시 선택</p>
-            {config.requestType === "spam_check" && (
-              <Button variant="weak" size="small" onClick={handlePaste}>
-                붙여넣기
-              </Button>
-            )}
+            <Button variant="weak" size="small" onClick={handlePaste}>
+              붙여넣기
+            </Button>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {config.examples.map((ex) => (
@@ -131,6 +129,27 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
           }
           hasError={message.length > MAX_LENGTH || !!validationError}
         />
+
+        <div
+          style={{
+            background: "#F5F8FF",
+            borderRadius: 10,
+            padding: "12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#3366CC", margin: 0 }}>
+            📋 문자 복사하는 방법
+          </p>
+          <p style={{ fontSize: 13, color: "#555", margin: 0, lineHeight: 1.6 }}>
+            1. 복사할 글자를 <strong>꾹 누르세요</strong><br />
+            2. 파란 점을 끌어서 복사할 범위를 잡아요<br />
+            3. <strong>'복사'</strong>를 누르고 돌아와서<br />
+            4. 위의 <strong>'붙여넣기'</strong> 버튼을 눌러주세요
+          </p>
+        </div>
 
         <p style={{ fontSize: 13, color: "#888", margin: 0 }}>
           주민번호, 카드번호, 계좌번호 등 개인정보는 입력하지 마세요.

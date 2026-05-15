@@ -38,7 +38,16 @@ async function callEdgeFunction<T>(
   return { ok: true, data: json as T };
 }
 
-export type RequestType = "free_chat" | "explain_easy" | "spam_check" | "rewrite_message";
+export type RequestType =
+  | "free_chat"
+  | "explain_easy"
+  | "spam_check"
+  | "rewrite_message"
+  | "reply_help"
+  | "phone_check"
+  | "english_explain"
+  | "proofread"
+  | "stock_beneficiary";
 export type Tone = "formal" | "casual" | "simple";
 
 export type AiChatRequest = {
