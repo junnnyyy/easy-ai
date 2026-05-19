@@ -8,9 +8,11 @@ const MODEL = "gpt-4o-mini";
 
 type RequestBody = {
   deviceId: string;
-  requestType: "free_chat" | "explain_easy" | "spam_check" | "rewrite_message";
+  requestType: string;
   message: string;
   tone?: "formal" | "casual" | "simple";
+  market?: "nasdaq" | "kospi";
+  marketCap?: "large" | "mid" | "small";
   rewardId?: string;
 };
 
@@ -26,7 +28,7 @@ Deno.serve(async (req) => {
     return errorResponse("INVALID_JSON", "요청 형식이 올바르지 않아요.");
   }
 
-  const { deviceId, requestType, message, tone, rewardId } = body;
+  const { deviceId, requestType, message, tone, market, marketCap, rewardId } = body;
 
   if (!deviceId || !requestType || !message) {
     return errorResponse("MISSING_FIELDS", "필수 항목이 빠져 있어요.");
@@ -134,9 +136,21 @@ Deno.serve(async (req) => {
     return errorResponse("TEMPLATE_NOT_FOUND", "요청 유형을 찾을 수 없어요.", 400);
   }
 
+  const marketLabel: Record<string, string> = {
+    nasdaq: "나스닥",
+    kospi: "코스피",
+  };
+  const marketCapLabel: Record<string, string> = {
+    large: "대형주 (시총 상위)",
+    mid: "중형주 (시총 중간)",
+    small: "소형주 (시총 하위)",
+  };
+
   const userPrompt = template.user_template
     .replace("{{user_input}}", message)
-    .replace("{{tone}}", tone ?? "");
+    .replace("{{tone}}", tone ?? "")
+    .replace("{{market}}", market ? (marketLabel[market] ?? market) : "")
+    .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "");
 
   // ── 6. ai_requests 로그 생성 ──────────────────────────────────
   const { data: reqRow } = await db

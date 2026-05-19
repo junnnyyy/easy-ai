@@ -1,4 +1,9 @@
-import type { RequestType, Tone } from "../api/client";
+import type { RequestType, Tone, Market, MarketCap } from "../api/client";
+
+export type WarningBanner = {
+  title: string;
+  body: string;
+};
 
 export type FeatureConfig = {
   key:
@@ -16,6 +21,9 @@ export type FeatureConfig = {
   examples: string[];
   requestType: RequestType;
   hasTone?: true;
+  hasMarket?: true;
+  hasMarketCap?: true;
+  warningBanner?: WarningBanner;
 };
 
 export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
@@ -63,6 +71,12 @@ export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
       "미국이 중국산 전기차에 고율 관세를 부과했다",
     ],
     requestType: "stock_beneficiary",
+    hasMarket: true,
+    hasMarketCap: true,
+    warningBanner: {
+      title: "투자 판단은 반드시 본인이 직접 하세요",
+      body: "AI 답변은 참고용 정보예요. 실제 투자 결과에 대해 책임지지 않아요.",
+    },
   },
   proofread: {
     key: "proofread",
@@ -115,4 +129,15 @@ export const TONE_OPTIONS: { value: Tone; label: string }[] = [
   { value: "formal", label: "공손하게" },
   { value: "casual", label: "편하게" },
   { value: "simple", label: "짧게" },
+];
+
+export const MARKET_OPTIONS: { value: Market; label: string }[] = [
+  { value: "nasdaq", label: "나스닥" },
+  { value: "kospi", label: "코스피" },
+];
+
+export const MARKET_CAP_OPTIONS: { value: MarketCap; label: string }[] = [
+  { value: "large", label: "대형주" },
+  { value: "mid", label: "중형주" },
+  { value: "small", label: "소형주" },
 ];

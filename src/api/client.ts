@@ -38,6 +38,9 @@ async function callEdgeFunction<T>(
   return { ok: true, data: json as T };
 }
 
+export type Market = "nasdaq" | "kospi";
+export type MarketCap = "large" | "mid" | "small";
+
 export type RequestType =
   | "free_chat"
   | "explain_easy"
@@ -55,6 +58,8 @@ export type AiChatRequest = {
   requestType: RequestType;
   message: string;
   tone?: Tone;
+  market?: Market;
+  marketCap?: MarketCap;
   rewardId?: string;
 };
 

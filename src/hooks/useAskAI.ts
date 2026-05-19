@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { api } from "../api/client";
-import type { RequestType, Tone } from "../api/client";
+import type { RequestType, Tone, Market, MarketCap } from "../api/client";
 import { getErrorMessage } from "../lib/errorMessages";
 import { detectSensitive } from "../lib/sensitive";
 import { useUserKey } from "./useUserKey";
@@ -11,6 +11,8 @@ export type AskParams = {
   requestType: RequestType;
   message: string;
   tone?: Tone;
+  market?: Market;
+  marketCap?: MarketCap;
   rewardId?: string;
 };
 
@@ -80,6 +82,8 @@ export function useAskAI() {
           requestType: params.requestType,
           message: params.message,
           tone: params.tone,
+          market: params.market,
+          marketCap: params.marketCap,
           rewardId: params.rewardId,
         }, controller.signal);
 

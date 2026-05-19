@@ -2,8 +2,8 @@ import { Button, FixedBottomCTA, SegmentedControl, TextArea, useToast } from "@t
 import { useState } from "react";
 import type { AskParams } from "../hooks/useAskAI";
 import type { FeatureConfig } from "../features/featureConfigs";
-import { TONE_OPTIONS } from "../features/featureConfigs";
-import type { Tone } from "../api/client";
+import { TONE_OPTIONS, MARKET_OPTIONS, MARKET_CAP_OPTIONS } from "../features/featureConfigs";
+import type { Tone, Market, MarketCap } from "../api/client";
 import { NavBar } from "../components/NavBar";
 import { AdBanner } from "../components/AdBanner";
 
@@ -20,6 +20,8 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
   const toast = useToast();
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState<Tone>("formal");
+  const [market, setMarket] = useState<Market>("nasdaq");
+  const [marketCap, setMarketCap] = useState<MarketCap>("large");
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handlePaste = async () => {
@@ -52,6 +54,8 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
       requestType: config.requestType,
       message: trimmed,
       tone: config.hasTone ? tone : undefined,
+      market: config.hasMarket ? market : undefined,
+      marketCap: config.hasMarketCap ? marketCap : undefined,
     });
   };
 
@@ -62,6 +66,30 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
       <div style={{ padding: "20px 20px 0", display: "flex", flexDirection: "column", gap: 20 }}>
         <p style={{ fontSize: 15, color: "#444", margin: 0 }}>{config.description}</p>
 
+        {config.warningBanner && (
+          <div
+            style={{
+              background: "#FFF8E6",
+              border: "1.5px solid #F5A623",
+              borderRadius: 10,
+              padding: "14px 16px",
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+            }}
+          >
+            <span style={{ fontSize: 20, lineHeight: 1 }}>⚠️</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#B25E00", margin: 0 }}>
+                {config.warningBanner.title}
+              </p>
+              <p style={{ fontSize: 13, color: "#7A4500", margin: 0, lineHeight: 1.6 }}>
+                {config.warningBanner.body}
+              </p>
+            </div>
+          </div>
+        )}
+
         {(errorMessage || validationError) && (
           <p style={{ color: "#E52222", fontSize: 14, margin: 0 }}>
             {validationError ?? errorMessage}
@@ -71,11 +99,34 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
         {config.hasTone && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>말투 선택</p>
-            <SegmentedControl
-              value={tone}
-              onChange={(v) => setTone(v as Tone)}
-            >
+            <SegmentedControl value={tone} onChange={(v) => setTone(v as Tone)}>
               {TONE_OPTIONS.map((opt) => (
+                <SegmentedControl.Item key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SegmentedControl.Item>
+              ))}
+            </SegmentedControl>
+          </div>
+        )}
+
+        {config.hasMarket && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>시장 선택</p>
+            <SegmentedControl value={market} onChange={(v) => setMarket(v as Market)}>
+              {MARKET_OPTIONS.map((opt) => (
+                <SegmentedControl.Item key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SegmentedControl.Item>
+              ))}
+            </SegmentedControl>
+          </div>
+        )}
+
+        {config.hasMarketCap && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>시가총액 구간</p>
+            <SegmentedControl value={marketCap} onChange={(v) => setMarketCap(v as MarketCap)}>
+              {MARKET_CAP_OPTIONS.map((opt) => (
                 <SegmentedControl.Item key={opt.value} value={opt.value}>
                   {opt.label}
                 </SegmentedControl.Item>

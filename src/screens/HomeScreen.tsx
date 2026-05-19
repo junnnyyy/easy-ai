@@ -66,6 +66,23 @@ export function HomeScreen({ onAsk, onFeatureSelect, errorMessage }: Props) {
           />
         </div>
 
+        <div
+          style={{
+            background: "#F0F4FF",
+            borderRadius: 10,
+            padding: "12px 14px",
+            display: "flex",
+            gap: 8,
+            alignItems: "flex-start",
+          }}
+        >
+          <span style={{ fontSize: 16, lineHeight: 1.4 }}>ℹ️</span>
+          <p style={{ fontSize: 13, color: "#444", margin: 0, lineHeight: 1.6 }}>
+            <strong>의료·법률·금융 관련 질문</strong>은 AI 답변을 참고만 하시고,
+            중요한 결정은 전문가에게 꼭 확인하세요.
+          </p>
+        </div>
+        <AdBanner />
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <p style={{ fontSize: 13, color: "#888", margin: 0 }}>
             주민번호, 카드번호, 계좌번호 등 개인정보는 입력하지 마세요.
@@ -84,7 +101,7 @@ export function HomeScreen({ onAsk, onFeatureSelect, errorMessage }: Props) {
         </div>
       </div>
 
-      <AdBanner />
+      {/* <AdBanner /> */}
 
       <FixedBottomCTA
         onClick={handleSubmit}
