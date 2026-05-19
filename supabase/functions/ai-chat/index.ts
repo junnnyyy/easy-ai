@@ -4,7 +4,6 @@ import { detectSensitive } from "../_shared/sensitive.ts";
 import { createServiceClient } from "../_shared/supabase.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4o-mini";
 
 type RequestBody = {
   deviceId: string;
@@ -128,7 +127,7 @@ Deno.serve(async (req) => {
   // ── 5. 프롬프트 조회 ──────────────────────────────────────────
   const { data: template, error: tplError } = await db
     .from("prompt_templates")
-    .select("system_prompt, user_template, max_output_tokens")
+    .select("system_prompt, user_template, max_output_tokens, model")
     .eq("request_type", requestType)
     .single();
 
@@ -184,7 +183,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${openAiKey}`,
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: template.model,
         messages: [
           { role: "system", content: template.system_prompt },
           { role: "user", content: userPrompt },
@@ -225,7 +224,7 @@ Deno.serve(async (req) => {
     db.from("ai_requests").update({
       ai_output: answer,
       status: "success",
-      model_name: MODEL,
+      model_name: template.model,
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
       updated_at: new Date().toISOString(),
