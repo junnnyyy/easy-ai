@@ -5,7 +5,7 @@ import type { FeatureConfig } from "../features/featureConfigs";
 import { FEATURE_CONFIGS } from "../features/featureConfigs";
 import { AdBanner } from "../components/AdBanner";
 
-const MAX_LENGTH = 1000;
+const MAX_LENGTH = 256;
 
 type Props = {
   onAsk: (params: AskParams) => void;

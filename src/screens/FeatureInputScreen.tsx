@@ -7,7 +7,7 @@ import type { Tone, Market, MarketCap } from "../api/client";
 import { NavBar } from "../components/NavBar";
 import { AdBanner } from "../components/AdBanner";
 
-const MAX_LENGTH = 1000;
+const MAX_LENGTH = 256;
 
 type Props = {
   config: FeatureConfig;
