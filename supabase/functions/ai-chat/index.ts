@@ -162,20 +162,20 @@ Deno.serve(async (req) => {
     .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "")
     .replace("{{news_context}}", newsContext);
 
-  // ── 6. free_chat 대화 히스토리 조회 ─────────────────────────────
+  // ── 6. 대화 히스토리 조회 (전체 기능, 최근 24시간) ──────────────
   type ChatMessage = { role: string; content: string };
-  let conversationHistory: ChatMessage[] = [];
-  if (requestType === "free_chat") {
-    const { data: history } = await db
-      .from("conversation_messages")
-      .select("role, content")
-      .eq("device_id", deviceId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (history) {
-      conversationHistory = (history as ChatMessage[]).reverse();
-    }
-  }
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: history } = await db
+    .from("conversation_messages")
+    .select("role, content")
+    .eq("device_id", deviceId)
+    .eq("request_type", requestType)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const conversationHistory: ChatMessage[] = history
+    ? (history as ChatMessage[]).reverse()
+    : [];
 
   // ── 7. ai_requests 로그 생성 ──────────────────────────────────
   const { data: reqRow } = await db
@@ -250,12 +250,10 @@ Deno.serve(async (req) => {
   }
 
   // ── 8. 로그 업데이트 + 사용량 증가 + 대화 히스토리 저장 ────────
-  const saveHistory = requestType === "free_chat"
-    ? db.from("conversation_messages").insert([
-        { device_id: deviceId, role: "user", content: message },
-        { device_id: deviceId, role: "assistant", content: answer },
-      ])
-    : Promise.resolve();
+  const saveHistory = db.from("conversation_messages").insert([
+    { device_id: deviceId, request_type: requestType, role: "user", content: message },
+    { device_id: deviceId, request_type: requestType, role: "assistant", content: answer },
+  ]);
 
   await Promise.all([
     db.from("ai_requests").update({
