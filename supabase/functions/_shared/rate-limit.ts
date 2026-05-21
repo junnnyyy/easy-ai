@@ -1,22 +1,12 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
-export const FREE_DAILY_LIMIT = 0; // 무료 사용 없음: 첫 질문부터 광고 필요
-export const AD_DAILY_LIMIT = 100; // 광고 포함 최대 하루 사용 횟수
-
-export type UsageRow = {
-  id: string;
-  device_id: string;
-  usage_date: string;
-  free_count: number;
-  ad_count: number;
-  blocked_count: number;
-};
+export const AD_DAILY_LIMIT = 100;
 
 export type UsageStatus = {
   freeCount: number;
   adCount: number;
-  requiresAd: boolean; // 무료 소진 → 광고 시청 필요
-  isBlocked: boolean;  // 광고 포함 한도도 소진 → 완전 차단
+  requiresAd: boolean;
+  isBlocked: boolean;
 };
 
 export async function getUsageStatus(
@@ -25,21 +15,20 @@ export async function getUsageStatus(
 ): Promise<UsageStatus> {
   const today = new Date().toISOString().slice(0, 10);
 
-  const { data } = await db
-    .from("usage_limits")
-    .select("free_count, ad_count")
-    .eq("device_id", deviceId)
-    .eq("usage_date", today)
-    .maybeSingle();
+  const [quotaRes, usageRes] = await Promise.all([
+    db.from("user_quotas").select("free_count").eq("device_id", deviceId).maybeSingle(),
+    db.from("usage_limits").select("ad_count").eq("device_id", deviceId).eq("usage_date", today).maybeSingle(),
+  ]);
 
-  const freeCount = data?.free_count ?? 0;
-  const adCount = data?.ad_count ?? 0;
+  // 첫 접속이면 free_count = 1 (기본값), 이후엔 DB 값 사용
+  const freeCount = quotaRes.data?.free_count ?? 1;
+  const adCount = usageRes.data?.ad_count ?? 0;
 
   return {
     freeCount,
     adCount,
-    requiresAd: freeCount >= FREE_DAILY_LIMIT,
-    isBlocked: freeCount >= FREE_DAILY_LIMIT && adCount >= AD_DAILY_LIMIT,
+    requiresAd: freeCount <= 0,
+    isBlocked: freeCount <= 0 && adCount >= AD_DAILY_LIMIT,
   };
 }
 
@@ -48,13 +37,16 @@ export async function incrementUsage(
   deviceId: string,
   column: "free_count" | "ad_count"
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
-
-  await db.rpc("increment_usage", {
-    p_device_id: deviceId,
-    p_usage_date: today,
-    p_column: column,
-  });
+  if (column === "free_count") {
+    await db.rpc("decrement_free_count", { p_device_id: deviceId });
+  } else {
+    const today = new Date().toISOString().slice(0, 10);
+    await db.rpc("increment_usage", {
+      p_device_id: deviceId,
+      p_usage_date: today,
+      p_column: column,
+    });
+  }
 }
 
 export async function incrementBlockedCount(

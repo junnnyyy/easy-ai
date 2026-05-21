@@ -23,7 +23,7 @@ export default function App() {
   const { showAd, status: adStatus } = useRewardedAd();
   const [adBusy, setAdBusy] = useState(false);
 
-  // 버튼 한 번으로: 광고 시청 → rewardId 발급 → AI 호출 → 결과 화면.
+  // free_count 먼저 소진 → 부족하면 광고 시청 후 재호출
   const handleAsk = async (params: AskParams) => {
     if (adBusy || status === "loading") return;
     if (userKeyState.status !== "ready") {
@@ -31,9 +31,23 @@ export default function App() {
       return;
     }
 
+    // 1) rewardId 없이 먼저 호출 (free_count 사용)
+    const firstResult = await ask(params);
+    if (firstResult.ok) {
+      setScreen({ name: "result" });
+        window.scrollTo(0, 0);
+      return;
+    }
+
+    // free_count 부족한 경우에만 광고 진행
+    if (firstResult.error.code !== "AD_REQUIRED") {
+      toast.openToast(firstResult.error.message);
+      return;
+    }
+
+    // 2) 광고 시청
     setAdBusy(true);
     try {
-      // 1) 광고 시청
       const nonce = crypto.randomUUID();
       const adResult = await showAd();
 
@@ -48,7 +62,7 @@ export default function App() {
         return;
       }
 
-      // 2) rewardId 발급
+      // 3) rewardId 발급
       const rewardRes = await api.issueAdReward({
         deviceId: userKeyState.userKey,
         nonce,
@@ -58,10 +72,11 @@ export default function App() {
         return;
       }
 
-      // 3) AI 호출
+      // 4) rewardId 포함해서 재호출
       const result = await ask({ ...params, rewardId: rewardRes.data.rewardId });
       if (result.ok) {
         setScreen({ name: "result" });
+        window.scrollTo(0, 0);
       } else {
         toast.openToast(result.error.message);
       }
@@ -73,16 +88,19 @@ export default function App() {
   const handleFeatureSelect = (key: FeatureConfig["key"]) => {
     reset();
     setScreen({ name: "feature", config: FEATURE_CONFIGS[key] });
+    window.scrollTo(0, 0);
   };
 
   const handleBack = () => {
     reset();
     setScreen({ name: "home" });
+    window.scrollTo(0, 0);
   };
 
   const handleReset = () => {
     reset();
     setScreen({ name: "home" });
+    window.scrollTo(0, 0);
   };
 
   // 광고 노출/AI 호출 진행 중에는 로딩 화면.

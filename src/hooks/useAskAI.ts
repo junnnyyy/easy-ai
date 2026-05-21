@@ -92,7 +92,8 @@ export function useAskAI() {
           return { ok: true, answer: res.data.answer };
         } else {
           const err = makeError(res.error.code, res.error.message);
-          setError(err);
+          // AD_REQUIRED는 광고 흐름으로 처리하므로 에러 state에 노출하지 않음
+          if (res.error.code !== "AD_REQUIRED") setError(err);
           return { ok: false, error: err };
         }
       } catch (e) {

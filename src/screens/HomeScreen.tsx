@@ -5,7 +5,7 @@ import type { FeatureConfig } from "../features/featureConfigs";
 import { FEATURE_CONFIGS } from "../features/featureConfigs";
 import { AdBanner } from "../components/AdBanner";
 
-const MAX_LENGTH = 256;
+const MAX_LENGTH = 1000;
 
 type Props = {
   onAsk: (params: AskParams) => void;
@@ -40,64 +40,63 @@ export function HomeScreen({ onAsk, onFeatureSelect, errorMessage }: Props) {
         </p>
       </div>
 
-      <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ padding: "0 0", display: "flex", flexDirection: "column", gap: 12 }}>
         {(errorMessage || validationError) && (
           <p style={{ color: "#E52222", fontSize: 14, margin: 0 }}>
             {validationError ?? errorMessage}
           </p>
         )}
 
-        <div>
-          <TextArea
-            variant="box"
-            value={message}
-            onChange={(e) => {
-              setMessage(e.target.value);
-              if (validationError) setValidationError(null);
-            }}
-            placeholder="궁금한 것을 무엇이든 물어보세요."
-            minHeight={120}
-            help={
-              message.length > MAX_LENGTH
-                ? `${MAX_LENGTH}자 이내로 입력해 주세요.`
-                : `${message.length} / ${MAX_LENGTH}`
-            }
-            hasError={message.length > MAX_LENGTH || !!validationError}
-          />
-        </div>
-
-        <div
-          style={{
-            background: "#F0F4FF",
-            borderRadius: 10,
-            padding: "12px 14px",
-            display: "flex",
-            gap: 8,
-            alignItems: "flex-start",
+        <TextArea
+          variant="box"
+          value={message}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            if (validationError) setValidationError(null);
           }}
-        >
-          <span style={{ fontSize: 16, lineHeight: 1.4 }}>ℹ️</span>
-          <p style={{ fontSize: 13, color: "#444", margin: 0, lineHeight: 1.6 }}>
-            <strong>의료·법률·금융 관련 질문</strong>은 AI 답변을 참고만 하시고,
-            중요한 결정은 전문가에게 꼭 확인하세요.
-          </p>
-        </div>
-        <AdBanner />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          placeholder="궁금한 것을 무엇이든 물어보세요."
+          minHeight={120}
+          help={
+            message.length > MAX_LENGTH
+              ? `${MAX_LENGTH}자 이내로 입력해 주세요.`
+              : `${message.length} / ${MAX_LENGTH}`
+          }
+          hasError={message.length > MAX_LENGTH || !!validationError}
+        />
+        <div style={{padding: "0 20px"}}>
+          <div
+            style={{
+              background: "#F0F4FF",
+              borderRadius: 10,
+              padding: "10px 14px",
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-start",
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1.4 }}>ℹ️</span>
+            <p style={{ fontSize: 13, color: "#444", margin: 0, lineHeight: 1.6 }}>
+              <strong>의료·법률·금융 관련 질문</strong>은 AI 답변을 참고만 하시고,
+              중요한 결정은 전문가에게 꼭 확인하세요.
+            </p>
+          </div>
+
           <p style={{ fontSize: 13, color: "#888", margin: 0 }}>
             주민번호, 카드번호, 계좌번호 등 개인정보는 입력하지 마세요.
           </p>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>자주 쓰는 기능</p>
-          {(Object.values(FEATURE_CONFIGS) as FeatureConfig[]).map((config) => (
-            <FeatureCard
-              key={config.key}
-              config={config}
-              onSelect={() => onFeatureSelect(config.key)}
-            />
-          ))}
+          <AdBanner />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+            <p style={{ fontSize: 16, fontWeight: 600, margin: "0 0 8px" }}>이런 질문 어때요?</p>
+            {(Object.values(FEATURE_CONFIGS) as FeatureConfig[]).map((config) => (
+              <FeatureCard
+                key={config.key}
+                config={config}
+                onSelect={() => onFeatureSelect(config.key)}
+              />
+            ))}
+          </div>
         </div>
       </div>
 

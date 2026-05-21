@@ -1,9 +1,12 @@
 import { errorResponse, handleCors, jsonResponse } from "../_shared/cors.ts";
+import { formatNewsForPrompt, searchNewsForMarket } from "../_shared/news-search.ts";
 import { getUsageStatus, incrementBlockedCount, incrementUsage } from "../_shared/rate-limit.ts";
 import { detectSensitive } from "../_shared/sensitive.ts";
 import { createServiceClient } from "../_shared/supabase.ts";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+
+const nowKST = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, -1);
 
 type RequestBody = {
   deviceId: string;
@@ -114,7 +117,7 @@ Deno.serve(async (req) => {
     // 조건부 update로 동시 사용 방어: where used=false 일 때만 used=true 변경
     const { data: consumed, error: consumeErr } = await db
       .from("ad_rewards")
-      .update({ used: true, used_at: new Date().toISOString() })
+      .update({ used: true, used_at: nowKST() })
       .eq("id", rewardId)
       .eq("used", false)
       .select("id");
@@ -145,13 +148,36 @@ Deno.serve(async (req) => {
     small: "소형주 (시총 하위)",
   };
 
+  // 수혜주 찾기는 최신 뉴스 검색 결과를 컨텍스트로 주입
+  let newsContext = "";
+  if (requestType === "stock_beneficiary" && market) {
+    const newsItems = await searchNewsForMarket(message, market);
+    newsContext = formatNewsForPrompt(newsItems);
+  }
+
   const userPrompt = template.user_template
     .replace("{{user_input}}", message)
     .replace("{{tone}}", tone ?? "")
     .replace("{{market}}", market ? (marketLabel[market] ?? market) : "")
-    .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "");
+    .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "")
+    .replace("{{news_context}}", newsContext);
 
-  // ── 6. ai_requests 로그 생성 ──────────────────────────────────
+  // ── 6. free_chat 대화 히스토리 조회 ─────────────────────────────
+  type ChatMessage = { role: string; content: string };
+  let conversationHistory: ChatMessage[] = [];
+  if (requestType === "free_chat") {
+    const { data: history } = await db
+      .from("conversation_messages")
+      .select("role, content")
+      .eq("device_id", deviceId)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (history) {
+      conversationHistory = (history as ChatMessage[]).reverse();
+    }
+  }
+
+  // ── 7. ai_requests 로그 생성 ──────────────────────────────────
   const { data: reqRow } = await db
     .from("ai_requests")
     .insert({
@@ -173,7 +199,7 @@ Deno.serve(async (req) => {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10_000);
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
     const aiRes = await fetch(OPENAI_API_URL, {
       method: "POST",
@@ -186,9 +212,13 @@ Deno.serve(async (req) => {
         model: template.model,
         messages: [
           { role: "system", content: template.system_prompt },
+          ...conversationHistory,
           { role: "user", content: userPrompt },
         ],
-        max_tokens: template.max_output_tokens,
+        // gpt-5 계열은 max_completion_tokens, 그 외(gpt-4o 등)는 max_tokens
+        ...(template.model.startsWith("gpt-5")
+          ? { max_completion_tokens: template.max_output_tokens }
+          : { max_tokens: template.max_output_tokens }),
         temperature: 0.7,
       }),
     });
@@ -207,7 +237,7 @@ Deno.serve(async (req) => {
     const isTimeout = err instanceof Error && err.name === "AbortError";
     await db
       .from("ai_requests")
-      .update({ status: "failed", error_message: String(err), updated_at: new Date().toISOString() })
+      .update({ status: "failed", error_message: String(err), updated_at: nowKST() })
       .eq("id", requestId);
 
     return errorResponse(
@@ -219,7 +249,14 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 8. 로그 업데이트 + 사용량 증가 ───────────────────────────
+  // ── 8. 로그 업데이트 + 사용량 증가 + 대화 히스토리 저장 ────────
+  const saveHistory = requestType === "free_chat"
+    ? db.from("conversation_messages").insert([
+        { device_id: deviceId, role: "user", content: message },
+        { device_id: deviceId, role: "assistant", content: answer },
+      ])
+    : Promise.resolve();
+
   await Promise.all([
     db.from("ai_requests").update({
       ai_output: answer,
@@ -227,10 +264,12 @@ Deno.serve(async (req) => {
       model_name: template.model,
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
-      updated_at: new Date().toISOString(),
+      updated_at: nowKST(),
     }).eq("id", requestId),
 
     incrementUsage(db, deviceId, isAdRequest ? "ad_count" : "free_count"),
+
+    saveHistory,
   ]);
 
   // ── 9. 최신 사용량으로 응답 ───────────────────────────────────
