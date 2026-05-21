@@ -50,7 +50,9 @@ export type RequestType =
   | "phone_check"
   | "english_explain"
   | "proofread"
-  | "stock_beneficiary";
+  | "stock_beneficiary"
+  | "saju"
+  | "yunse";
 export type Tone = "formal" | "casual" | "simple";
 
 export type AiChatRequest = {

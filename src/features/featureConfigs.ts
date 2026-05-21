@@ -9,12 +9,13 @@ export type FeatureConfig = {
   key:
     | "explain_easy"
     | "spam_check"
-    | "rewrite_message"
     | "reply_help"
     | "phone_check"
     | "english_explain"
     | "proofread"
-    | "stock_beneficiary";
+    | "stock_beneficiary"
+    | "saju"
+    | "yunse";
   title: string;
   description: string;
   placeholder: string;
@@ -27,6 +28,46 @@ export type FeatureConfig = {
 };
 
 export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
+  yunse: {
+    key: "yunse",
+    title: "오늘의 운세",
+    description: "생년월일을 입력하면 오늘 하루 운세를 봐드려요.",
+    placeholder: "예) 1965년 3월 15일생, 여자",
+    examples: [],
+    requestType: "yunse",
+  },
+  saju: {
+    key: "saju",
+    title: "사주 보기",
+    description: "생년월일을 입력하면 사주를 쉽게 풀어드려요.",
+    placeholder: "예) 1965년 3월 15일생, 여자",
+    examples: [
+      "1965년 3월 15일생, 남자",
+      "1970년 8월 22일생, 여자",
+    ],
+    requestType: "saju",
+    warningBanner: {
+      title: "사주는 참고용이에요",
+      body: "AI 사주풀이는 재미로 즐기는 참고 정보예요. 중요한 결정은 스스로 판단하세요.",
+    },
+  },
+  stock_beneficiary: {
+    key: "stock_beneficiary",
+    title: "수혜주 찾기",
+    description: "뉴스나 정책을 입력하면 어떤 종목이 수혜를 받을지 알려드려요.",
+    placeholder: "예) 정부가 반도체 보조금을 대폭 늘리기로 했다",
+    examples: [
+      "정부가 반도체 보조금을 대폭 늘리기로 했다",
+      "미국이 중국산 전기차에 고율 관세를 부과했다",
+    ],
+    requestType: "stock_beneficiary",
+    hasMarket: true,
+    hasMarketCap: true,
+    warningBanner: {
+      title: "투자 판단은 반드시 본인이 직접 하세요",
+      body: "AI 답변은 참고용 정보예요. 실제 투자 결과에 대해 책임지지 않아요.",
+    },
+  },
   reply_help: {
     key: "reply_help",
     title: "답장 도우미",
@@ -61,23 +102,6 @@ export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
     ],
     requestType: "english_explain",
   },
-  stock_beneficiary: {
-    key: "stock_beneficiary",
-    title: "수혜주 찾기",
-    description: "뉴스나 정책을 입력하면 어떤 종목이 수혜를 받을지 알려드려요.",
-    placeholder: "예) 정부가 반도체 보조금을 대폭 늘리기로 했다",
-    examples: [
-      "정부가 반도체 보조금을 대폭 늘리기로 했다",
-      "미국이 중국산 전기차에 고율 관세를 부과했다",
-    ],
-    requestType: "stock_beneficiary",
-    hasMarket: true,
-    hasMarketCap: true,
-    warningBanner: {
-      title: "투자 판단은 반드시 본인이 직접 하세요",
-      body: "AI 답변은 참고용 정보예요. 실제 투자 결과에 대해 책임지지 않아요.",
-    },
-  },
   proofread: {
     key: "proofread",
     title: "문자 맞춤법 고치기",
@@ -110,18 +134,6 @@ export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
       "고객님 택배가 주소 불명으로 반송되었습니다. 확인: http://...",
     ],
     requestType: "spam_check",
-  },
-  rewrite_message: {
-    key: "rewrite_message",
-    title: "문자 쉽게 바꾸기",
-    description: "보내고 싶은 내용을 입력하면 자연스러운 문자로 바꿔드려요.",
-    placeholder: "예) 엄마 오늘 병원 같이 가",
-    examples: [
-      "엄마 오늘 병원 같이 가",
-      "선생님한테 애가 오늘 학교 못 간다고 해야 해",
-    ],
-    requestType: "rewrite_message",
-    hasTone: true,
   },
 };
 

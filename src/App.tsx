@@ -6,6 +6,8 @@ import { useRewardedAd } from "./hooks/useRewardedAd";
 import { api } from "./api/client";
 import { HomeScreen } from "./screens/HomeScreen";
 import { FeatureInputScreen } from "./screens/FeatureInputScreen";
+import { SajuInputScreen } from "./screens/SajuInputScreen";
+import { YunseInputScreen } from "./screens/YunseInputScreen";
 import { ResultScreen } from "./screens/ResultScreen";
 import { LoadingScreen } from "./screens/LoadingScreen";
 import { FEATURE_CONFIGS, type FeatureConfig } from "./features/featureConfigs";
@@ -115,6 +117,24 @@ export default function App() {
   }
 
   if (screen.name === "feature") {
+    if (screen.config.key === "saju") {
+      return (
+        <SajuInputScreen
+          onAsk={handleAsk}
+          onBack={handleBack}
+          errorMessage={error?.message ?? null}
+        />
+      );
+    }
+    if (screen.config.key === "yunse") {
+      return (
+        <YunseInputScreen
+          onAsk={handleAsk}
+          onBack={handleBack}
+          errorMessage={error?.message ?? null}
+        />
+      );
+    }
     return (
       <FeatureInputScreen
         config={screen.config}
