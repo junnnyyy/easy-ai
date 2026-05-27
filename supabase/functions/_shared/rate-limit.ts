@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { todayKST } from "./time.ts";
 
 export const AD_DAILY_LIMIT = 100;
 
@@ -9,11 +10,21 @@ export type UsageStatus = {
   isBlocked: boolean;
 };
 
+// 클라이언트 응답용 usage 객체 (UsageStatus → 응답 페이로드).
+export function usagePayload(u: UsageStatus) {
+  return {
+    freeCount: u.freeCount,
+    adCount: u.adCount,
+    requiresAd: u.requiresAd,
+    isBlocked: u.isBlocked,
+  };
+}
+
 export async function getUsageStatus(
   db: SupabaseClient,
   deviceId: string
 ): Promise<UsageStatus> {
-  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const today = todayKST();
 
   const [quotaRes, usageRes] = await Promise.all([
     db.from("user_quotas").select("free_count").eq("device_id", deviceId).maybeSingle(),
@@ -40,7 +51,7 @@ export async function incrementUsage(
   if (column === "free_count") {
     await db.rpc("decrement_free_count", { p_device_id: deviceId });
   } else {
-    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const today = todayKST();
     await db.rpc("increment_usage", {
       p_device_id: deviceId,
       p_usage_date: today,
@@ -61,7 +72,7 @@ export async function incrementBlockedCount(
   db: SupabaseClient,
   deviceId: string
 ): Promise<void> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKST();
 
   await db.rpc("increment_usage", {
     p_device_id: deviceId,

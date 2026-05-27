@@ -1,12 +1,11 @@
 // 거시 지표 수집 — FRED (미국) + ECOS (한국). 하루 1회 캐싱.
 
-import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { kstNow, todayKST } from "./time.ts";
 
 const FRED_BASE = "https://api.stlouisfed.org/fred/series/observations";
 const ECOS_BASE = "https://ecos.bok.or.kr/api/StatisticSearch";
 const TIMEOUT_MS = 6_000;
-
-const todayKST = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 type Point = { date: string; value: number | null };
 
@@ -60,11 +59,11 @@ async function fetchEcosSeries(
   const end = todayKST().replace(/-/g, "").slice(0, cycle === "M" ? 6 : 8);
   const startNum = (() => {
     if (cycle === "M") {
-      const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+      const d = kstNow();
       d.setMonth(d.getMonth() - span);
       return d.toISOString().slice(0, 7).replace("-", "");
     }
-    const d = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const d = kstNow();
     d.setDate(d.getDate() - span);
     return d.toISOString().slice(0, 10).replace(/-/g, "");
   })();
@@ -116,7 +115,7 @@ async function fetchFreshPayload(): Promise<MacroPayload> {
   const [us, kr] = await Promise.all([usP, krP]);
 
   return {
-    fetchedAt: new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString(),
+    fetchedAt: kstNow().toISOString(),
     us: {
       fedFunds: us[0],
       treasury10y: us[1],

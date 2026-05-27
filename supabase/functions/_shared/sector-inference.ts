@@ -1,16 +1,10 @@
 // 종목 → 섹터 키워드 추론 (짧은 LLM 호출)
 // 섹터 뉴스 검색용 한국어 키워드 1~3개를 뽑아요.
 
+import { MARKET_LABEL, type Market } from "./market.ts";
+
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const TIMEOUT_MS = 8_000;
-
-export type Market = "kospi" | "kosdaq" | "nasdaq";
-
-const marketLabel: Record<Market, string> = {
-  kospi: "코스피",
-  kosdaq: "코스닥",
-  nasdaq: "나스닥",
-};
 
 export async function inferSectorKeywords(symbolName: string, market: Market): Promise<string[]> {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
@@ -41,7 +35,7 @@ export async function inferSectorKeywords(symbolName: string, market: Market): P
           },
           {
             role: "user",
-            content: `시장: ${marketLabel[market]}\n종목명: ${symbolName}`,
+            content: `시장: ${MARKET_LABEL[market]}\n종목명: ${symbolName}`,
           },
         ],
         max_completion_tokens: 80,

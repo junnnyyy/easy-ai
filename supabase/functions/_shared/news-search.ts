@@ -1,12 +1,12 @@
 // 수혜주 찾기용 뉴스 검색 — 네이버 뉴스 API (한국·해외 뉴스 모두 한국어로 검색)
 
+import type { Market } from "./market.ts";
+
 export type NewsItem = {
   title: string;
   description: string;
   publishedAt: string;
 };
-
-export type Market = "kospi" | "kosdaq" | "nasdaq";
 
 const NEWS_LIMIT = 8;
 const NEWS_TIMEOUT_MS = 5_000;

@@ -2,13 +2,28 @@ import { errorResponse, handleCors, jsonResponse } from "../_shared/cors.ts";
 import { formatNewsForPrompt, searchNews, searchNewsForMarket } from "../_shared/news-search.ts";
 import { formatMacroForPrompt, getMacroIndicators } from "../_shared/macro-indicators.ts";
 import { inferSectorKeywords } from "../_shared/sector-inference.ts";
-import { getUsageStatus, incrementBlockedCount, incrementUsage } from "../_shared/rate-limit.ts";
+import { getUsageStatus, incrementBlockedCount, incrementUsage, usagePayload } from "../_shared/rate-limit.ts";
+import { MARKET_LABEL } from "../_shared/market.ts";
 import { detectSensitive } from "../_shared/sensitive.ts";
 import { createServiceClient } from "../_shared/supabase.ts";
+import { nowKST } from "../_shared/time.ts";
+import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-const nowKST = () => new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, -1);
+// 멱등 히트(이미 성공 저장된 요청) 시: 재차감 없이 저장된 답변 + 현재 사용량 반환.
+async function priorSuccessResponse(
+  db: SupabaseClient,
+  deviceId: string,
+  prior: { id: string; ai_output: string | null }
+): Promise<Response> {
+  const u = await getUsageStatus(db, deviceId);
+  return jsonResponse({
+    answer: prior.ai_output ?? "",
+    requestId: prior.id,
+    usage: usagePayload(u),
+  });
+}
 
 type RequestBody = {
   deviceId: string;
@@ -62,17 +77,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (prior?.status === "success") {
-      const u = await getUsageStatus(db, deviceId);
-      return jsonResponse({
-        answer: prior.ai_output ?? "",
-        requestId: prior.id,
-        usage: {
-          freeCount: u.freeCount,
-          adCount: u.adCount,
-          requiresAd: u.requiresAd,
-          isBlocked: u.isBlocked,
-        },
-      });
+      return await priorSuccessResponse(db, deviceId, prior);
     }
     if (prior?.status === "processing") {
       return errorResponse(
@@ -118,12 +123,7 @@ Deno.serve(async (req) => {
           code: "AD_REQUIRED",
           message: "무료 사용 횟수를 모두 썼어요. 광고를 보면 더 사용할 수 있어요.",
         },
-        usage: {
-          freeCount: usage.freeCount,
-          adCount: usage.adCount,
-          requiresAd: true,
-          isBlocked: false,
-        },
+        usage: usagePayload(usage),
       },
       402
     );
@@ -140,11 +140,6 @@ Deno.serve(async (req) => {
     return errorResponse("TEMPLATE_NOT_FOUND", "요청 유형을 찾을 수 없어요.", 400);
   }
 
-  const marketLabel: Record<string, string> = {
-    nasdaq: "나스닥",
-    kospi: "코스피",
-    kosdaq: "코스닥",
-  };
   const marketCapLabel: Record<string, string> = {
     large: "대형주 (시총 상위)",
     mid: "중형주 (시총 중간)",
@@ -196,15 +191,16 @@ Deno.serve(async (req) => {
   const userPrompt = template.user_template
     .replace("{{user_input}}", message)
     .replace("{{tone}}", tone ?? "")
-    .replace("{{market}}", market ? (marketLabel[market] ?? market) : "")
+    .replace("{{market}}", market ? (MARKET_LABEL[market] ?? market) : "")
     .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "")
     .replace("{{symbol_name}}", symbolName ?? "")
     .replace("{{news_context}}", newsContext)
     .replace("{{macro_context}}", macroContext);
 
   // ── 6. 대화 히스토리 조회 (전체 기능, 최근 24시간) ──────────────
+  // created_at은 KST로 저장되므로 비교 기준도 KST now - 24h 여야 함.
   type ChatMessage = { role: string; content: string };
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() + 9 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000).toISOString();
   const { data: history } = await db
     .from("conversation_messages")
     .select("role, content")
@@ -239,17 +235,7 @@ Deno.serve(async (req) => {
       .eq("client_request_id", clientRequestId)
       .maybeSingle();
     if (prior?.status === "success") {
-      const u = await getUsageStatus(db, deviceId);
-      return jsonResponse({
-        answer: prior.ai_output ?? "",
-        requestId: prior.id,
-        usage: {
-          freeCount: u.freeCount,
-          adCount: u.adCount,
-          requiresAd: u.requiresAd,
-          isBlocked: u.isBlocked,
-        },
-      });
+      return await priorSuccessResponse(db, deviceId, prior);
     }
     return errorResponse(
       "AI_IN_PROGRESS",
@@ -345,11 +331,6 @@ Deno.serve(async (req) => {
   return jsonResponse({
     answer,
     requestId,
-    usage: {
-      freeCount: newUsage.freeCount,
-      adCount: newUsage.adCount,
-      requiresAd: newUsage.requiresAd,
-      isBlocked: newUsage.isBlocked,
-    },
+    usage: usagePayload(newUsage),
   });
 });
