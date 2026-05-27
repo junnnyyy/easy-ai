@@ -38,7 +38,7 @@ async function callEdgeFunction<T>(
   return { ok: true, data: json as T };
 }
 
-export type Market = "nasdaq" | "kospi";
+export type Market = "nasdaq" | "kospi" | "kosdaq";
 export type MarketCap = "large" | "mid" | "small";
 
 export type RequestType =
@@ -51,6 +51,7 @@ export type RequestType =
   | "english_explain"
   | "proofread"
   | "stock_beneficiary"
+  | "stock_analysis"
   | "saju"
   | "yunse";
 export type Tone = "formal" | "casual" | "simple";
@@ -62,7 +63,8 @@ export type AiChatRequest = {
   tone?: Tone;
   market?: Market;
   marketCap?: MarketCap;
-  rewardId?: string;
+  symbolName?: string;
+  clientRequestId?: string;
 };
 
 export type AiChatResponse = {
@@ -82,8 +84,7 @@ export type AdRewardRequest = {
 };
 
 export type AdRewardResponse = {
-  rewardId: string;
-  expiresAt: string;
+  freeCount: number;
 };
 
 export const api = {

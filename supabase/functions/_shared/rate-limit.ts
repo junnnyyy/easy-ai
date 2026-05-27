@@ -13,7 +13,7 @@ export async function getUsageStatus(
   db: SupabaseClient,
   deviceId: string
 ): Promise<UsageStatus> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const [quotaRes, usageRes] = await Promise.all([
     db.from("user_quotas").select("free_count").eq("device_id", deviceId).maybeSingle(),
@@ -40,13 +40,21 @@ export async function incrementUsage(
   if (column === "free_count") {
     await db.rpc("decrement_free_count", { p_device_id: deviceId });
   } else {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
     await db.rpc("increment_usage", {
       p_device_id: deviceId,
       p_usage_date: today,
       p_column: column,
     });
   }
+}
+
+// 광고 시청 보상: free_count += 1
+export async function creditFreeCount(
+  db: SupabaseClient,
+  deviceId: string
+): Promise<void> {
+  await db.rpc("increment_free_count", { p_device_id: deviceId });
 }
 
 export async function incrementBlockedCount(

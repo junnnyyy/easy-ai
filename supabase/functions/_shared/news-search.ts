@@ -6,7 +6,7 @@ export type NewsItem = {
   publishedAt: string;
 };
 
-export type Market = "kospi" | "nasdaq";
+export type Market = "kospi" | "kosdaq" | "nasdaq";
 
 const NEWS_LIMIT = 8;
 const NEWS_TIMEOUT_MS = 5_000;
@@ -27,7 +27,7 @@ function buildQuery(message: string, market: Market): string {
   return market === "nasdaq" ? `미국 ${message}` : message;
 }
 
-export async function searchNewsForMarket(message: string, market: Market): Promise<NewsItem[]> {
+export async function searchNews(query: string, limit = NEWS_LIMIT): Promise<NewsItem[]> {
   const clientId = Deno.env.get("NAVER_CLIENT_ID");
   const clientSecret = Deno.env.get("NAVER_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
@@ -35,8 +35,7 @@ export async function searchNewsForMarket(message: string, market: Market): Prom
     return [];
   }
 
-  const query = buildQuery(message, market);
-  const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(query)}&display=${NEWS_LIMIT}&sort=date`;
+  const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(query)}&display=${limit}&sort=date`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), NEWS_TIMEOUT_MS);
@@ -67,6 +66,10 @@ export async function searchNewsForMarket(message: string, market: Market): Prom
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+export function searchNewsForMarket(message: string, market: Market): Promise<NewsItem[]> {
+  return searchNews(buildQuery(message, market));
 }
 
 export function formatNewsForPrompt(items: NewsItem[]): string {

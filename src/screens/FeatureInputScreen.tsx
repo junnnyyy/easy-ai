@@ -56,8 +56,13 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
       tone: config.hasTone ? tone : undefined,
       market: config.hasMarket ? market : undefined,
       marketCap: config.hasMarketCap ? marketCap : undefined,
+      symbolName: config.hasSymbol ? trimmed : undefined,
     });
   };
+
+  const marketOptions = config.marketOptions
+    ? MARKET_OPTIONS.filter((opt) => config.marketOptions!.includes(opt.value))
+    : MARKET_OPTIONS;
 
   return (
     <div style={{ paddingBottom: 100 }}>
@@ -113,7 +118,7 @@ export function FeatureInputScreen({ config, onAsk, onBack, errorMessage }: Prop
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>시장 선택</p>
             <SegmentedControl value={market} onChange={(v) => setMarket(v as Market)}>
-              {MARKET_OPTIONS.map((opt) => (
+              {marketOptions.map((opt) => (
                 <SegmentedControl.Item key={opt.value} value={opt.value}>
                   {opt.label}
                 </SegmentedControl.Item>

@@ -58,6 +58,13 @@ npm run format
 - 사용자 식별은 앱인토스 유저 식별키(`getUserKeyForGame` / `getAnonymousKey` 등)를 기반으로 하고, 이를 Edge Function에 넘겨 DB row를 식별해요.
 - Edge Function 응답은 클라이언트가 처리하기 쉬운 JSON 구조로 통일. 에러는 HTTP status + `{ error: { code, message } }` 형태로.
 
+### 시간대 (KST)
+- DB의 모든 timestamp 컬럼은 `timestamp without time zone` 타입에 KST 값을 저장해요. `timestamptz`(UTC) 사용 금지.
+- 마이그레이션에서 기본값은 `default (now() at time zone 'Asia/Seoul')`로 설정해요.
+- Edge Function에서 현재 시각이 필요하면 `new Date(Date.now() + 9 * 60 * 60 * 1000)`을 사용해요. `new Date()` / `Date.now()` 단독 사용 금지.
+- 오늘 날짜(date 문자열)가 필요하면 `new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10)`으로 KST 기준으로 구해요.
+- DB에서 읽은 KST timestamp 값을 `new Date()`로 파싱하면 Deno가 UTC로 해석하므로, 비교 상대방도 반드시 KST now (`Date.now() + 9h`)로 맞춰야 해요.
+
 ### 광고
 - 광고 노출/보상은 앱인토스 인앱 광고 API를 통해서만 처리. (`docs/skills/apps-in-toss.md`의 광고 섹션 참고)
 - 보상형 광고 보상 지급은 클라이언트 신호만 믿지 말고, 서버(Edge Function)에서 한 번 더 검증한 뒤 DB에 기록해요.

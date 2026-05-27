@@ -1,5 +1,7 @@
 import { errorResponse, handleCors, jsonResponse } from "../_shared/cors.ts";
-import { formatNewsForPrompt, searchNewsForMarket } from "../_shared/news-search.ts";
+import { formatNewsForPrompt, searchNews, searchNewsForMarket } from "../_shared/news-search.ts";
+import { formatMacroForPrompt, getMacroIndicators } from "../_shared/macro-indicators.ts";
+import { inferSectorKeywords } from "../_shared/sector-inference.ts";
 import { getUsageStatus, incrementBlockedCount, incrementUsage } from "../_shared/rate-limit.ts";
 import { detectSensitive } from "../_shared/sensitive.ts";
 import { createServiceClient } from "../_shared/supabase.ts";
@@ -13,9 +15,10 @@ type RequestBody = {
   requestType: string;
   message: string;
   tone?: "formal" | "casual" | "simple";
-  market?: "nasdaq" | "kospi";
+  market?: "nasdaq" | "kospi" | "kosdaq";
   marketCap?: "large" | "mid" | "small";
-  rewardId?: string;
+  symbolName?: string;
+  clientRequestId?: string; // 멱등성 키 (응답 유실 시 재시도용)
 };
 
 Deno.serve(async (req) => {
@@ -30,7 +33,7 @@ Deno.serve(async (req) => {
     return errorResponse("INVALID_JSON", "요청 형식이 올바르지 않아요.");
   }
 
-  const { deviceId, requestType, message, tone, market, marketCap, rewardId } = body;
+  const { deviceId, requestType, message, tone, market, marketCap, symbolName, clientRequestId } = body;
 
   if (!deviceId || !requestType || !message) {
     return errorResponse("MISSING_FIELDS", "필수 항목이 빠져 있어요.");
@@ -47,7 +50,40 @@ Deno.serve(async (req) => {
     return errorResponse("CONFIG_ERROR", "서버 설정 오류가 발생했어요.", 500);
   }
 
-  // ── 3. 민감정보 검사 ──────────────────────────────────────────
+  // ── 3. 멱등성 체크 ────────────────────────────────────────────
+  // 같은 client_request_id가 이미 처리됐으면, requiresAd 게이트보다 먼저
+  // 저장된 답변을 재차감 없이 반환. (성공 후 응답만 유실된 케이스 복구)
+  if (clientRequestId) {
+    const { data: prior } = await db
+      .from("ai_requests")
+      .select("id, status, ai_output")
+      .eq("device_id", deviceId)
+      .eq("client_request_id", clientRequestId)
+      .maybeSingle();
+
+    if (prior?.status === "success") {
+      const u = await getUsageStatus(db, deviceId);
+      return jsonResponse({
+        answer: prior.ai_output ?? "",
+        requestId: prior.id,
+        usage: {
+          freeCount: u.freeCount,
+          adCount: u.adCount,
+          requiresAd: u.requiresAd,
+          isBlocked: u.isBlocked,
+        },
+      });
+    }
+    if (prior?.status === "processing") {
+      return errorResponse(
+        "AI_IN_PROGRESS",
+        "답변을 생성하고 있어요. 잠시 후 다시 시도해주세요.",
+        409
+      );
+    }
+  }
+
+  // ── 4. 민감정보 검사 ──────────────────────────────────────────
   const sensitive = detectSensitive(message);
   if (sensitive.detected) {
     await Promise.all([
@@ -75,9 +111,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  const isAdRequest = !!rewardId;
-
-  if (usage.requiresAd && !isAdRequest) {
+  if (usage.requiresAd) {
     return jsonResponse(
       {
         error: {
@@ -95,38 +129,6 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 4. 광고 보상 검증 + 일회성 소비 ────────────────────────────
-  if (isAdRequest) {
-    const { data: reward, error } = await db
-      .from("ad_rewards")
-      .select("id, used, expires_at")
-      .eq("id", rewardId)
-      .eq("device_id", deviceId)
-      .maybeSingle();
-
-    if (error || !reward) {
-      return errorResponse("AD_REWARD_INVALID", "유효하지 않은 광고 보상이에요.", 403);
-    }
-    if (reward.used) {
-      return errorResponse("AD_REWARD_INVALID", "이미 사용된 광고 보상이에요.", 403);
-    }
-    if (new Date(reward.expires_at) < new Date()) {
-      return errorResponse("AD_REWARD_INVALID", "광고 보상이 만료됐어요.", 403);
-    }
-
-    // 조건부 update로 동시 사용 방어: where used=false 일 때만 used=true 변경
-    const { data: consumed, error: consumeErr } = await db
-      .from("ad_rewards")
-      .update({ used: true, used_at: nowKST() })
-      .eq("id", rewardId)
-      .eq("used", false)
-      .select("id");
-
-    if (consumeErr || !consumed || consumed.length === 0) {
-      return errorResponse("AD_REWARD_INVALID", "이미 사용된 광고 보상이에요.", 403);
-    }
-  }
-
   // ── 5. 프롬프트 조회 ──────────────────────────────────────────
   const { data: template, error: tplError } = await db
     .from("prompt_templates")
@@ -141,6 +143,7 @@ Deno.serve(async (req) => {
   const marketLabel: Record<string, string> = {
     nasdaq: "나스닥",
     kospi: "코스피",
+    kosdaq: "코스닥",
   };
   const marketCapLabel: Record<string, string> = {
     large: "대형주 (시총 상위)",
@@ -148,11 +151,46 @@ Deno.serve(async (req) => {
     small: "소형주 (시총 하위)",
   };
 
-  // 수혜주 찾기는 최신 뉴스 검색 결과를 컨텍스트로 주입
   let newsContext = "";
+  let macroContext = "";
+
+  // 수혜주 찾기는 최신 뉴스 검색 결과를 컨텍스트로 주입
   if (requestType === "stock_beneficiary" && market) {
     const newsItems = await searchNewsForMarket(message, market);
     newsContext = formatNewsForPrompt(newsItems);
+  }
+
+  // 종목분석: 종목 뉴스 + 섹터 뉴스 + 거시 지표를 컨텍스트로 주입
+  if (requestType === "stock_analysis" && market && symbolName) {
+    const sectorKeywordsP = inferSectorKeywords(symbolName, market);
+    const symbolNewsP = searchNews(symbolName);
+    const macroP = getMacroIndicators(db);
+
+    const [sectorKeywords, symbolNews, macro] = await Promise.all([
+      sectorKeywordsP,
+      symbolNewsP,
+      macroP,
+    ]);
+
+    const sectorNewsLists = sectorKeywords.length
+      ? await Promise.all(sectorKeywords.map((kw) => searchNews(kw, 4)))
+      : [];
+
+    const symbolSection = symbolNews.length
+      ? `[종목 뉴스 — "${symbolName}"]\n${formatNewsForPrompt(symbolNews)}`
+      : `[종목 뉴스 — "${symbolName}"]\n(검색 결과 없음)`;
+
+    const sectorSection = sectorKeywords.length
+      ? sectorKeywords
+          .map((kw, i) => {
+            const list = sectorNewsLists[i] ?? [];
+            return `[섹터 뉴스 — "${kw}"]\n${formatNewsForPrompt(list)}`;
+          })
+          .join("\n\n")
+      : "[섹터 뉴스]\n(섹터를 추론하지 못했어요.)";
+
+    newsContext = `${symbolSection}\n\n${sectorSection}`;
+    macroContext = formatMacroForPrompt(macro);
   }
 
   const userPrompt = template.user_template
@@ -160,7 +198,9 @@ Deno.serve(async (req) => {
     .replace("{{tone}}", tone ?? "")
     .replace("{{market}}", market ? (marketLabel[market] ?? market) : "")
     .replace("{{market_cap}}", marketCap ? (marketCapLabel[marketCap] ?? marketCap) : "")
-    .replace("{{news_context}}", newsContext);
+    .replace("{{symbol_name}}", symbolName ?? "")
+    .replace("{{news_context}}", newsContext)
+    .replace("{{macro_context}}", macroContext);
 
   // ── 6. 대화 히스토리 조회 (전체 기능, 최근 24시간) ──────────────
   type ChatMessage = { role: string; content: string };
@@ -177,29 +217,57 @@ Deno.serve(async (req) => {
     ? (history as ChatMessage[]).reverse()
     : [];
 
-  // ── 7. ai_requests 로그 생성 ──────────────────────────────────
-  const { data: reqRow } = await db
+  // ── 7. ai_requests 로그 생성 (client_request_id를 멱등 락으로 사용) ──
+  const { data: reqRow, error: insertErr } = await db
     .from("ai_requests")
     .insert({
       device_id: deviceId,
       request_type: requestType,
       user_input_length: message.length,
-      ad_watched: isAdRequest,
       status: "processing",
+      client_request_id: clientRequestId ?? null,
     })
     .select("id")
     .single();
 
+  // 동시 요청이 같은 키로 먼저 락을 잡은 경우 (unique 충돌)
+  if (insertErr && clientRequestId) {
+    const { data: prior } = await db
+      .from("ai_requests")
+      .select("id, status, ai_output")
+      .eq("device_id", deviceId)
+      .eq("client_request_id", clientRequestId)
+      .maybeSingle();
+    if (prior?.status === "success") {
+      const u = await getUsageStatus(db, deviceId);
+      return jsonResponse({
+        answer: prior.ai_output ?? "",
+        requestId: prior.id,
+        usage: {
+          freeCount: u.freeCount,
+          adCount: u.adCount,
+          requiresAd: u.requiresAd,
+          isBlocked: u.isBlocked,
+        },
+      });
+    }
+    return errorResponse(
+      "AI_IN_PROGRESS",
+      "답변을 생성하고 있어요. 잠시 후 다시 시도해주세요.",
+      409
+    );
+  }
+
   const requestId = reqRow?.id ?? "unknown";
 
-  // ── 7. OpenAI 호출 ────────────────────────────────────────────
+  // ── 8. OpenAI 호출 ────────────────────────────────────────────
   let answer = "";
   let promptTokens = 0;
   let completionTokens = 0;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), 60_000);
 
     const aiRes = await fetch(OPENAI_API_URL, {
       method: "POST",
@@ -235,9 +303,10 @@ Deno.serve(async (req) => {
     completionTokens = aiJson.usage?.completion_tokens ?? 0;
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === "AbortError";
+    // 실패 시 멱등 키를 풀어(null) 같은 키로의 재시도가 새로 생성되게 함
     await db
       .from("ai_requests")
-      .update({ status: "failed", error_message: String(err), updated_at: nowKST() })
+      .update({ status: "failed", error_message: String(err), client_request_id: null, updated_at: nowKST() })
       .eq("id", requestId);
 
     return errorResponse(
@@ -249,7 +318,7 @@ Deno.serve(async (req) => {
     );
   }
 
-  // ── 8. 로그 업데이트 + 사용량 증가 + 대화 히스토리 저장 ────────
+  // ── 9. 로그 업데이트 + 사용량 증가 + 대화 히스토리 저장 ────────
   const saveHistory = db.from("conversation_messages").insert([
     { device_id: deviceId, request_type: requestType, role: "user", content: message },
     { device_id: deviceId, request_type: requestType, role: "assistant", content: answer },
@@ -265,12 +334,12 @@ Deno.serve(async (req) => {
       updated_at: nowKST(),
     }).eq("id", requestId),
 
-    incrementUsage(db, deviceId, isAdRequest ? "ad_count" : "free_count"),
+    incrementUsage(db, deviceId, "free_count"),
 
     saveHistory,
   ]);
 
-  // ── 9. 최신 사용량으로 응답 ───────────────────────────────────
+  // ── 10. 최신 사용량으로 응답 ──────────────────────────────────
   const newUsage = await getUsageStatus(db, deviceId);
 
   return jsonResponse({

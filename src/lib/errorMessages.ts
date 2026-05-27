@@ -8,10 +8,12 @@ const MESSAGES: Record<string, string> = {
   DAILY_LIMIT_EXCEEDED: "오늘 사용 가능한 횟수를 모두 쓰셨어요. 내일 다시 이용해 주세요.",
   USAGE_LIMIT_EXCEEDED: "오늘 사용 가능한 횟수를 모두 쓰셨어요. 내일 다시 이용해 주세요.",
   AD_REQUIRED: "무료 사용 횟수를 모두 쓰셨어요. 광고를 보시면 더 이용할 수 있어요.",
+  AD_DAILY_LIMIT_EXCEEDED: "오늘 광고 보상 한도를 모두 채웠어요. 내일 다시 이용해 주세요.",
   BLOCKED_SENSITIVE_INPUT:
     "개인정보(주민번호, 카드번호 등)가 포함된 내용은 입력할 수 없어요.",
   AD_REWARD_INVALID: "광고 보상이 만료됐거나 이미 사용되었어요. 다시 시도해 주세요.",
   AI_TIMEOUT: "AI 응답이 너무 늦어지고 있어요. 잠시 후 다시 시도해 주세요.",
+  AI_IN_PROGRESS: "답변을 생성하고 있어요. 잠시만 기다려 주세요.",
   AI_ERROR: "AI 응답 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
   AI_REQUEST_FAILED: "AI 응답 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.",
   INPUT_TOO_LONG: "내용이 너무 길어요. 1000자 이내로 줄여 주세요.",

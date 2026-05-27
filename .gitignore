@@ -19,3 +19,6 @@ supabase/.temp/
 # OS / 에디터
 .DS_Store
 *.local
+
+# 서버 롤백 스냅샷 (배포 시 자동 생성)
+scripts/.rollback-snapshot/

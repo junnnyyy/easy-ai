@@ -14,6 +14,7 @@ export type FeatureConfig = {
     | "english_explain"
     | "proofread"
     | "stock_beneficiary"
+    | "stock_analysis"
     | "saju"
     | "yunse";
   title: string;
@@ -24,6 +25,8 @@ export type FeatureConfig = {
   hasTone?: true;
   hasMarket?: true;
   hasMarketCap?: true;
+  hasSymbol?: true;
+  marketOptions?: Market[];
   warningBanner?: WarningBanner;
 };
 
@@ -49,6 +52,21 @@ export const FEATURE_CONFIGS: Record<FeatureConfig["key"], FeatureConfig> = {
     warningBanner: {
       title: "사주는 참고용이에요",
       body: "AI 사주풀이는 재미로 즐기는 참고 정보예요. 중요한 결정은 스스로 판단하세요.",
+    },
+  },
+  stock_analysis: {
+    key: "stock_analysis",
+    title: "종목 분석",
+    description: "종목명을 입력하면 최근 뉴스와 거시 지표(금리·물가)를 함께 살펴 분석해드려요.",
+    placeholder: "예) 삼성전자",
+    examples: ["삼성전자", "에코프로비엠", "NVIDIA"],
+    requestType: "stock_analysis",
+    hasMarket: true,
+    hasSymbol: true,
+    marketOptions: ["kospi", "kosdaq", "nasdaq"],
+    warningBanner: {
+      title: "투자 판단은 반드시 본인이 직접 하세요",
+      body: "AI 분석은 참고용이에요. 실제 투자 결과에 대해 책임지지 않아요.",
     },
   },
   stock_beneficiary: {
@@ -146,6 +164,7 @@ export const TONE_OPTIONS: { value: Tone; label: string }[] = [
 export const MARKET_OPTIONS: { value: Market; label: string }[] = [
   { value: "nasdaq", label: "나스닥" },
   { value: "kospi", label: "코스피" },
+  { value: "kosdaq", label: "코스닥" },
 ];
 
 export const MARKET_CAP_OPTIONS: { value: MarketCap; label: string }[] = [

@@ -33,7 +33,7 @@ export default function App() {
       return;
     }
 
-    // 1) rewardId 없이 먼저 호출 (free_count 사용)
+    // 1) free_count로 먼저 호출
     const firstResult = await ask(params);
     if (firstResult.ok) {
       setScreen({ name: "result" });
@@ -64,18 +64,18 @@ export default function App() {
         return;
       }
 
-      // 3) rewardId 발급
+      // 3) 광고 보상 적립 (free_count += 1)
       const rewardRes = await api.issueAdReward({
         deviceId: userKeyState.userKey,
         nonce,
       });
       if (!rewardRes.ok) {
-        toast.openToast("보상 발급에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        toast.openToast(rewardRes.error.message || "보상 적립에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
 
-      // 4) rewardId 포함해서 재호출
-      const result = await ask({ ...params, rewardId: rewardRes.data.rewardId });
+      // 4) 적립된 free_count로 재호출
+      const result = await ask(params);
       if (result.ok) {
         setScreen({ name: "result" });
         window.scrollTo(0, 0);

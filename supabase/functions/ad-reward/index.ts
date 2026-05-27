@@ -1,8 +1,6 @@
 import { errorResponse, handleCors, jsonResponse } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/supabase.ts";
-
-// 보상 TTL: 10분 (광고 시청 후 곧바로 사용한다고 가정)
-const REWARD_TTL_MINUTES = 10;
+import { AD_DAILY_LIMIT, creditFreeCount, getUsageStatus, incrementUsage } from "../_shared/rate-limit.ts";
 
 type RequestBody = {
   deviceId: string;
@@ -30,48 +28,46 @@ Deno.serve(async (req) => {
 
   const db = createServiceClient();
 
-  // 멱등성: 같은 (device_id, nonce)면 기존 row 반환 (광고 재시도/네트워크 재전송 대비)
+  // 멱등성: 같은 (device_id, nonce)면 이미 적립된 보상 → 재적립 없이 현재 잔량 반환
   const { data: existing } = await db
     .from("ad_rewards")
-    .select("id, expires_at")
+    .select("id")
     .eq("device_id", deviceId)
     .eq("nonce", nonce)
     .maybeSingle();
 
   if (existing) {
-    return jsonResponse({
-      rewardId: existing.id,
-      expiresAt: existing.expires_at,
-    });
+    const usage = await getUsageStatus(db, deviceId);
+    return jsonResponse({ freeCount: usage.freeCount });
   }
 
-  const expiresAt = new Date(Date.now() + REWARD_TTL_MINUTES * 60 * 1000).toISOString();
+  // 일일 광고 보상 한도 체크 (free_count 적립 전)
+  const usage = await getUsageStatus(db, deviceId);
+  if (usage.adCount >= AD_DAILY_LIMIT) {
+    return errorResponse(
+      "AD_DAILY_LIMIT_EXCEEDED",
+      "오늘 광고 보상 한도를 모두 채웠어요. 내일 다시 이용해주세요.",
+      429
+    );
+  }
 
-  const { data, error } = await db
+  // 보상 기록 (감사 + 멱등성 키)
+  const { error } = await db
     .from("ad_rewards")
-    .insert({ device_id: deviceId, nonce, expires_at: expiresAt })
-    .select("id, expires_at")
-    .single();
+    .insert({ device_id: deviceId, nonce });
 
   if (error) {
-    // unique 충돌 (동시 insert) → 재조회로 멱등성 회복
-    const { data: retried } = await db
-      .from("ad_rewards")
-      .select("id, expires_at")
-      .eq("device_id", deviceId)
-      .eq("nonce", nonce)
-      .maybeSingle();
-    if (retried) {
-      return jsonResponse({
-        rewardId: retried.id,
-        expiresAt: retried.expires_at,
-      });
-    }
-    return errorResponse("DB_ERROR", "보상 발급 중 오류가 발생했어요.", 500);
+    // unique 충돌 (동시 insert) → 재적립 없이 멱등 회복
+    const usageAfter = await getUsageStatus(db, deviceId);
+    return jsonResponse({ freeCount: usageAfter.freeCount });
   }
 
-  return jsonResponse({
-    rewardId: data!.id,
-    expiresAt: data!.expires_at,
-  });
+  // 보상 지급: free_count += 1, ad_count += 1 (일일 한도 추적)
+  await Promise.all([
+    creditFreeCount(db, deviceId),
+    incrementUsage(db, deviceId, "ad_count"),
+  ]);
+
+  const usageAfter = await getUsageStatus(db, deviceId);
+  return jsonResponse({ freeCount: usageAfter.freeCount });
 });
